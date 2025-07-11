@@ -12,7 +12,7 @@
 static bool decode_greet(struct hoopoe_packet_data *data)
 {
     /* null termination check */
-    if (data->data[data->data_size] != 0)
+    if (data->data[data->data_size - 1] != 0)
         return false;
 
     data->data_greet.name = (char *)data->data;
@@ -31,7 +31,7 @@ static bool decode_ping(struct hoopoe_packet_data *data)
 static bool decode_message(struct hoopoe_packet_data *data)
 {
     /* null termination check */
-    if (data->data[data->data_size] != 0)
+    if (data->data[data->data_size - 1] != 0)
         return false;
 
     data->data_message.message = (char *)data->data;

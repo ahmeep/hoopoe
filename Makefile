@@ -9,8 +9,8 @@ OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 
 INCLUDE = .
 
-CFLAGS := $(shell pkg-config --cflags ncurses) $(addprefix -I,$(INCLUDE)) -ggdb -Wall -Wextra -O3
-LDFLAGS := $(shell pkg-config --libs ncurses) -lm
+CFLAGS := $(shell pkg-config --cflags ncurses) $(addprefix -I,$(INCLUDE)) -ggdb -Wall -Wextra -O3 -fsanitize=address
+LDFLAGS := $(shell pkg-config --libs ncurses) -lm -fsanitize=address
 
 $(BUILD_DIR)/$(TARGET): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)

@@ -5,163 +5,142 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/uio.h>
 
-static bool recv_string(int sockfd, char **buf, uint32_t *size)
+#define MAX_PACKET_SIZE 1024 * 1024
+
+static bool decode_greet(struct hoopoe_packet_data *data)
 {
-    uint32_t string_size;
-
-    int ret = recv(sockfd, &string_size, sizeof(uint32_t), 0);
-
-    if (ret == 0)
+    /* null termination check */
+    if (data->data[data->data_size] != 0)
         return false;
 
-    if (ret < 0) {
-        perror("could not recv");
-        return false;
-    }
-
-    *buf = calloc(string_size + 1, sizeof(char));
-    ret = recv(sockfd, *buf, string_size * sizeof(char), 0);
-
-    if (ret == 0)
-        return false;
-
-    if (ret < 0) {
-        perror("could not recv");
-        return false;
-    }
-
-    if (size != NULL)
-        *size = string_size;
-
+    data->data_greet.name = (char *)data->data;
     return true;
 }
 
-static bool recv_greet(int sockfd, struct hoopoe_packet *ppacket)
+static bool decode_ping(struct hoopoe_packet_data *data)
 {
-    return recv_string(sockfd, &ppacket->data_greet.name, NULL);
-}
-
-static bool recv_ping(int sockfd, struct hoopoe_packet *ppacket)
-{
-    int ret = recv(sockfd, &ppacket->data_ping.time, sizeof(uint64_t), 0);
-    if (ret == 0)
+    if (data->data_size < sizeof(uint64_t))
         return false;
 
-    if (ret < 0) {
-        perror("could not recv");
-        return false;
-    }
-
+    data->data_ping.time = *((uint64_t *)data->data);
     return true;
 }
 
-static bool recv_message(int sockfd, struct hoopoe_packet *ppacket)
+static bool decode_message(struct hoopoe_packet_data *data)
 {
-    return recv_string(sockfd, &ppacket->data_message.message, NULL);
+    /* null termination check */
+    if (data->data[data->data_size] != 0)
+        return false;
+
+    data->data_message.message = (char *)data->data;
+    return true;
 }
 
-bool hoopoe_recv_packet(int sockfd, struct hoopoe_packet *ppacket)
+bool hoopoe_recv_packet(int sockfd, hoopoe_packet_type *type,
+                        struct hoopoe_packet_data *data)
 {
-    int ret = recv(sockfd, &ppacket->id, sizeof(uint8_t), 0);
+    static struct iovec vec = {0};
+    if (vec.iov_base == NULL)
+        vec.iov_base = calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
+    vec.iov_len = MAX_PACKET_SIZE * sizeof(uint8_t);
+
+    int ret = readv(sockfd, &vec, 1);
 
     if (ret == 0)
         return false;
 
     if (ret < 0) {
-        perror("could not recv");
+        perror("could not readv");
         return false;
     }
 
-    switch (ppacket->id) {
+    *type = *((uint8_t *)vec.iov_base);
+    data->data_size = vec.iov_len - sizeof(uint8_t);
+    data->data = malloc(data->data_size);
+    memcpy(data->data, vec.iov_base + sizeof(uint8_t), data->data_size);
+
+    switch (*type) {
     case HOOPOE_GREET:
-        return recv_greet(sockfd, ppacket);
+        return decode_greet(data);
     case HOOPOE_PING:
-        return recv_ping(sockfd, ppacket);
+        return decode_ping(data);
     case HOOPOE_MESSAGE:
-        return recv_message(sockfd, ppacket);
+        return decode_message(data);
     default:
-        printf("Invalid packet id %u\n", ppacket->id);
+        printf("Invalid packet type %u\n", *type);
         return false;
     }
 }
 
-static bool send_string(int sockfd, char *buf, uint32_t size)
+static void encode_greet(struct iovec *vec, struct hoopoe_data_greet data)
 {
-    if (size == 0)
-        size = strlen(buf);
+    size_t len = strlen(data.name) + 1;
+    if (vec->iov_len + len > MAX_PACKET_SIZE)
+        return;
 
-    int ret = send(sockfd, &size, sizeof(uint32_t), 0);
-    if (ret <= 0) {
-        perror("could not send");
-        return false;
-    }
-
-    ret = send(sockfd, buf, size * sizeof(char), 0);
-    if (ret <= 0) {
-        perror("could not send");
-        return false;
-    }
-
-    return true;
+    memcpy(vec->iov_base + vec->iov_len, data.name, len);
+    vec->iov_len += len;
 }
 
-static bool send_greet(int sockfd, struct hoopoe_packet ppacket)
+static void encode_ping(struct iovec *vec, struct hoopoe_data_ping data)
 {
-    return send_string(sockfd, ppacket.data_greet.name, 0);
+    size_t len = sizeof(uint64_t);
+    if (vec->iov_len + len > MAX_PACKET_SIZE)
+        return;
+
+    *((uint64_t *)(vec->iov_base + vec->iov_len)) = data.time;
+    vec->iov_len += len;
 }
 
-static bool send_ping(int sockfd, struct hoopoe_packet ppacket)
+static void encode_message(struct iovec *vec, struct hoopoe_data_message data)
 {
-    int ret = send(sockfd, &ppacket.data_ping.time, sizeof(uint64_t), 0);
-    if (ret <= 0) {
-        perror("could not send");
-        return false;
-    }
+    size_t len = strlen(data.message) + 1;
+    if (vec->iov_len + len > MAX_PACKET_SIZE)
+        return;
 
-    return true;
+    memcpy(vec->iov_base + vec->iov_len, data.message, len);
+    vec->iov_len += len;
 }
 
-static bool send_message(int sockfd, struct hoopoe_packet ppacket)
+bool hoopoe_send_packet(int sockfd, hoopoe_packet_type type,
+                        struct hoopoe_packet_data data)
 {
-    return send_string(sockfd, ppacket.data_message.message, 0);
-}
+    static struct iovec vec = {0};
+    if (vec.iov_base == NULL)
+        vec.iov_base = calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
 
-bool hoopoe_send_packet(int sockfd, struct hoopoe_packet packet)
-{
-    int ret = send(sockfd, &packet.id, sizeof(uint8_t), 0);
-    if (ret <= 0) {
-        perror("could not send");
-        return false;
-    }
+    vec.iov_len = sizeof(uint8_t);
+    *((uint8_t *)vec.iov_base) = type;
 
-    switch (packet.id) {
+    switch (type) {
     case HOOPOE_GREET:
-        return send_greet(sockfd, packet);
+        encode_greet(&vec, data.data_greet);
+        break;
     case HOOPOE_PING:
-        return send_ping(sockfd, packet);
+        encode_ping(&vec, data.data_ping);
+        break;
     case HOOPOE_MESSAGE:
-        return send_message(sockfd, packet);
+        encode_message(&vec, data.data_message);
+        break;
     default:
-        printf("Invalid packet id %u\n", packet.id);
+        free(vec.iov_base);
+        printf("Invalid packet type %u\n", type);
         return false;
     }
 
-    return false;
+    int ret = writev(sockfd, &vec, 1);
+
+    if (ret <= 0) {
+        perror("could not send");
+        return false;
+    }
+
+    return true;
 }
 
-void hoopoe_free_packet(struct hoopoe_packet packet)
+void hoopoe_free_packet(hoopoe_packet_type type, struct hoopoe_packet_data data)
 {
-    switch (packet.id) {
-    case HOOPOE_GREET:
-        if (packet.data_greet.name != NULL)
-            free(packet.data_greet.name);
-        break;
-    case HOOPOE_MESSAGE:
-        if (packet.data_message.message != NULL)
-            free(packet.data_message.message);
-        break;
-    default:
-        break;
-    }
+    free(data.data);
 }

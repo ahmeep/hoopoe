@@ -45,19 +45,20 @@ static void handle_client_connection(int fd, short revents)
     struct hoopoe_user *user = hoopoe_get_user(fd);
 
     if (revents & POLLIN) {
-        struct hoopoe_packet packet_buf = {};
-        if (!hoopoe_recv_packet(fd, &packet_buf)
-            || !hoopoe_server_handle_packet(user, packet_buf))
+        hoopoe_packet_type type;
+        struct hoopoe_packet_data packet_data = {0};
+        if (!hoopoe_recv_packet(fd, &type, &packet_data)
+            || !hoopoe_server_handle_packet(user, type, packet_data))
             closed = true;
-        hoopoe_free_packet(packet_buf);
+        hoopoe_free_packet(type, packet_data);
     } else if (revents & POLLOUT) {
         uint64_t current_time = hoopoe_time_milliseconds();
         if (current_time - user->last_pinged > 5000) {
-            struct hoopoe_packet ping_packet = {};
-            ping_packet.id = 1;
-            ping_packet.data_ping.time = current_time;
             user->last_pinged = current_time;
-            if (!hoopoe_send_packet(fd, ping_packet))
+
+            struct hoopoe_packet_data ping_data;
+            ping_data.data_ping.time = current_time;
+            if (!hoopoe_send_packet(fd, HOOPOE_PING, ping_data))
                 closed = true;
         }
     } else if (revents != 0) {

@@ -5,6 +5,7 @@
 
 #include "../shared/packets.h"
 
-bool hoopoe_client_handle_packet(int sockfd, struct hoopoe_packet packet);
+bool hoopoe_client_handle_packet(int sockfd, hoopoe_packet_type type,
+                                 struct hoopoe_packet_data data);
 
 #endif // HOOPOE_CLIENT_PACKET_HANDLER_H_

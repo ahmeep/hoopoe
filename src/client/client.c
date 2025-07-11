@@ -47,16 +47,19 @@ void hoopoe_client_start()
         return;
     }
 
-    struct hoopoe_packet packet_buf;
+    hoopoe_packet_type packet_type;
+    struct hoopoe_packet_data packet_data;
 
-    // start with a greet!
-    packet_buf.id = 0;
-    char *temp_name_buf = strdup(hoopoe_name());
-    packet_buf.data_greet.name = temp_name_buf;
+    {
+        // start with a greet!
+        char *temp_name_buf = strdup(hoopoe_name());
+        packet_data.data_greet.name = temp_name_buf;
 
-    hoopoe_send_packet(sockfd, packet_buf);
-    hoopoe_free_packet(packet_buf);
-    memset(&packet_buf, 0, sizeof(struct hoopoe_packet));
+        hoopoe_send_packet(sockfd, HOOPOE_GREET, packet_data);
+        memset(&packet_data, 0, sizeof(struct hoopoe_packet_data));
+
+        free(temp_name_buf);
+    }
 
     struct pollfd pollfd;
     pollfd.fd = sockfd;
@@ -72,27 +75,28 @@ void hoopoe_client_start()
             continue;
 
         if (pollfd.revents & POLLIN) {
-            if (!hoopoe_recv_packet(sockfd, &packet_buf))
+            if (!hoopoe_recv_packet(sockfd, &packet_type, &packet_data))
                 break;
 
-            if (!hoopoe_client_handle_packet(sockfd, packet_buf))
+            if (!hoopoe_client_handle_packet(sockfd, packet_type, packet_data))
                 break;
 
-            hoopoe_free_packet(packet_buf);
+            hoopoe_free_packet(packet_type, packet_data);
         } else if (pollfd.revents & POLLOUT) {
             if (ui_context->message_queue_size > 0) {
                 pthread_mutex_lock(&ui_context->ui_mutex);
 
-                packet_buf.id = HOOPOE_MESSAGE;
-                packet_buf.data_message.message =
+                char *message =
                     ui_context
                         ->message_queue[ui_context->message_queue_size - 1];
 
-                if (!hoopoe_send_packet(sockfd, packet_buf))
+                packet_type = HOOPOE_MESSAGE;
+                packet_data.data_message.message = message;
+
+                if (!hoopoe_send_packet(sockfd, packet_type, packet_data))
                     break;
 
-                hoopoe_free_packet(packet_buf);
-
+                free(message);
                 ui_context->message_queue_size--;
 
                 pthread_mutex_unlock(&ui_context->ui_mutex);

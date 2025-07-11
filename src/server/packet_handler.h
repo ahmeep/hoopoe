@@ -6,7 +6,8 @@
 #include "../shared/packets.h"
 #include "user.h"
 
-bool hoopoe_server_handle_packet(struct hoopoe_user *sender,
-                                 struct hoopoe_packet packet);
+bool hoopoe_server_handle_packet(struct hoopoe_user *user,
+                                 hoopoe_packet_type type,
+                                 struct hoopoe_packet_data data);
 
 #endif // HOOPOE_SERVER_PACKET_HANDLER_H_

@@ -58,8 +58,8 @@ bool hoopoe_remove_pollfd(int fd)
     return true;
 }
 
-void hoopoe_get_pollfds(struct pollfd **ppollfds, uint32_t *psize)
+struct pollfd **hoopoe_get_pollfds(uint32_t *size)
 {
-    *ppollfds = pollfds;
-    *psize = pollfds_size;
+    *size = pollfds_size;
+    return &pollfds;
 }

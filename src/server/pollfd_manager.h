@@ -8,6 +8,7 @@
 
 bool hoopoe_add_pollfd(int fd, short events);
 bool hoopoe_remove_pollfd(int fd);
-void hoopoe_get_pollfds(struct pollfd **ppollfds, uint32_t *psize);
+/* return pointer to the array to prevent use after free/realloc */
+struct pollfd **hoopoe_get_pollfds(uint32_t *size);
 
 #endif // HOOPOE_SERVER_POLLFD_MANAGER_H_

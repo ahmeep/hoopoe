@@ -42,16 +42,14 @@ static void handle_client_connection(int fd, short revents)
 {
     bool closed = false;
 
-    struct hoopoe_user *user = hoopoe_get_user(fd);
-
     if (revents & POLLIN) {
-        hoopoe_packet_type type;
-        struct hoopoe_packet_data packet_data = {0};
-        if (!hoopoe_recv_packet(fd, &type, &packet_data)
-            || !hoopoe_server_handle_packet(user, type, packet_data))
+        if (!hoopoe_recv_packets(fd, hoopoe_server_handle_packet))
             closed = true;
-        hoopoe_free_packet(type, packet_data);
-    } else if (revents & POLLOUT) {
+    }
+
+    if (revents & POLLOUT) {
+        struct hoopoe_user *user = hoopoe_get_user(fd);
+
         uint64_t current_time = hoopoe_time_milliseconds();
         if (current_time - user->last_pinged > 5000) {
             user->last_pinged = current_time;
@@ -62,7 +60,9 @@ static void handle_client_connection(int fd, short revents)
             if (!hoopoe_send_packet(fd, HOOPOE_PING, ping_data))
                 closed = true;
         }
-    } else if (revents != 0) {
+    }
+
+    if (!(revents & POLLIN) && !(revents & POLLOUT) && revents != 0) {
         perror("error while polling");
         closed = true;
     }
@@ -100,15 +100,15 @@ void hoopoe_server_start()
         return;
     }
 
-    struct pollfd *pollfds;
+    struct pollfd **pollfds;
     uint32_t pollfds_size;
 
     if (!hoopoe_add_pollfd(sockfd, POLLIN))
         return;
 
     while (running) {
-        hoopoe_get_pollfds(&pollfds, &pollfds_size);
-        int ret = poll(pollfds, pollfds_size, -1);
+        pollfds = hoopoe_get_pollfds(&pollfds_size);
+        int ret = poll(*pollfds, pollfds_size, -1);
 
         if (ret == -1)
             break;
@@ -117,8 +117,8 @@ void hoopoe_server_start()
             continue;
 
         for (uint32_t i = 0; i < pollfds_size; i++) {
-            int fd = pollfds[i].fd;
-            short revents = pollfds[i].revents;
+            int fd = (*pollfds)[i].fd;
+            short revents = (*pollfds)[i].revents;
             if (fd == sockfd) {
                 if (revents & POLLIN) {
                     accept_client_connection();

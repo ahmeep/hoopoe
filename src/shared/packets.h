@@ -4,6 +4,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef enum {
+    HOOPOE_GREET = 0,
+    HOOPOE_PING,
+    HOOPOE_MESSAGE,
+} hoopoe_packet_type;
+
 struct hoopoe_data_greet {
     char *name;
     // add more info?
@@ -30,17 +36,11 @@ struct hoopoe_packet_data {
     };
 };
 
-typedef enum {
-    HOOPOE_GREET = 0,
-    HOOPOE_PING,
-    HOOPOE_MESSAGE,
-} hoopoe_packet_type;
+typedef bool (*hoopoe_packet_handler)(int, hoopoe_packet_type,
+                                      struct hoopoe_packet_data);
 
-bool hoopoe_recv_packet(int sockfd, hoopoe_packet_type *type,
-                        struct hoopoe_packet_data *data);
+bool hoopoe_recv_packets(int sockfd, hoopoe_packet_handler handler_cb);
 bool hoopoe_send_packet(int sockfd, hoopoe_packet_type type,
-                        struct hoopoe_packet_data data);
-void hoopoe_free_packet(hoopoe_packet_type type,
-                        struct hoopoe_packet_data data);
+                         struct hoopoe_packet_data data);
 
 #endif // HOOPOE_PACKETS_H_

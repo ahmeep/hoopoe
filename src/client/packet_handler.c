@@ -21,7 +21,7 @@ static bool handle_ping(int sockfd, struct hoopoe_data_ping data)
     return hoopoe_send_packet(sockfd, HOOPOE_PING, packet_data);
 }
 
-static bool handle_message(int sockfd, struct hoopoe_data_message data)
+static bool handle_message(/*int sockfd, */struct hoopoe_data_message data)
 {
     hoopoe_ui_new_message(data.message);
     return true;
@@ -36,7 +36,7 @@ bool hoopoe_client_handle_packet(int sockfd, hoopoe_packet_type type,
     case HOOPOE_PING:
         return handle_ping(sockfd, data.data_ping);
     case HOOPOE_MESSAGE:
-        return handle_message(sockfd, data.data_message);
+        return handle_message(/*sockfd, */ data.data_message);
     default:
         printf("Invalid packet type %u\n", type);
         return false;

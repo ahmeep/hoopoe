@@ -54,10 +54,11 @@ static bool handle_message(struct hoopoe_user *user,
     return true;
 }
 
-bool hoopoe_server_handle_packet(struct hoopoe_user *user,
-                                 hoopoe_packet_type type,
+bool hoopoe_server_handle_packet(int fd, hoopoe_packet_type type,
                                  struct hoopoe_packet_data data)
 {
+    struct hoopoe_user *user = hoopoe_get_user(fd);
+
     switch (type) {
     case HOOPOE_GREET:
         return handle_greet(user, data.data_greet);

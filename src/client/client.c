@@ -47,19 +47,7 @@ void hoopoe_client_start()
         return;
     }
 
-    hoopoe_packet_type packet_type;
-    struct hoopoe_packet_data packet_data;
-
-    {
-        // start with a greet!
-        char *temp_name_buf = strdup(hoopoe_name());
-        packet_data.data_greet.name = temp_name_buf;
-
-        hoopoe_send_packet(sockfd, HOOPOE_GREET, packet_data);
-        memset(&packet_data, 0, sizeof(struct hoopoe_packet_data));
-
-        free(temp_name_buf);
-    }
+    bool greeted = false;
 
     struct pollfd pollfd;
     pollfd.fd = sockfd;
@@ -75,14 +63,11 @@ void hoopoe_client_start()
             continue;
 
         if (pollfd.revents & POLLIN) {
-            if (!hoopoe_recv_packet(sockfd, &packet_type, &packet_data))
+            if (!hoopoe_recv_packets(sockfd, hoopoe_client_handle_packet))
                 break;
+        }
 
-            if (!hoopoe_client_handle_packet(sockfd, packet_type, packet_data))
-                break;
-
-            hoopoe_free_packet(packet_type, packet_data);
-        } else if (pollfd.revents & POLLOUT) {
+        if (pollfd.revents & POLLOUT) {
             if (ui_context->message_queue_size > 0) {
                 pthread_mutex_lock(&ui_context->ui_mutex);
 
@@ -90,10 +75,10 @@ void hoopoe_client_start()
                     ui_context
                         ->message_queue[ui_context->message_queue_size - 1];
 
-                packet_type = HOOPOE_MESSAGE;
+                struct hoopoe_packet_data packet_data;
                 packet_data.data_message.message = message;
 
-                if (!hoopoe_send_packet(sockfd, packet_type, packet_data))
+                if (!hoopoe_send_packet(sockfd, HOOPOE_MESSAGE, packet_data))
                     break;
 
                 free(message);
@@ -101,8 +86,18 @@ void hoopoe_client_start()
 
                 pthread_mutex_unlock(&ui_context->ui_mutex);
             }
-        } else {
-            break;
+
+            if (!greeted) {
+                char *temp_name_buf = strdup(hoopoe_name());
+
+                struct hoopoe_packet_data packet_data;
+                packet_data.data_greet.name = temp_name_buf;
+
+                hoopoe_send_packet(sockfd, HOOPOE_GREET, packet_data);
+
+                free(temp_name_buf);
+                greeted = true;
+            }
         }
     }
 

@@ -1,10 +1,7 @@
 TARGET := hoopoe 
 BUILD_DIR := ./build
 
-SRCS := src/options.c src/main.c
-SRCS += src/shared/packets.c src/shared/connection_info.c src/shared/time.c
-SRCS += src/client/client.c src/client/packet_handler.c src/client/ui.c
-SRCS += src/server/server.c src/server/packet_handler.c src/server/pollfd_manager.c src/server/user.c
+SRCS := $(wildcard src/*.c src/**/*.c)
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 
 INCLUDE = .

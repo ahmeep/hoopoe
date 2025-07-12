@@ -22,4 +22,7 @@ bool hoopoe_ui_start(struct hoopoe_ui_context **pcontext);
 void hoopoe_ui_new_message(const char *message);
 void hoopoe_ui_finish();
 
+void hoopoe_ui_set_server_name(const char *server_name);
+void hoopoe_ui_set_ping(uint64_t ping);
+
 #endif // HOOPOE_CLIENT_UI_H_

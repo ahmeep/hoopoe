@@ -58,6 +58,7 @@ static void handle_client_connection(int fd, short revents)
 
             struct hoopoe_packet_data ping_data;
             ping_data.data_ping.time = current_time;
+            ping_data.data_ping.old_ms = user->ping;
             if (!hoopoe_send_packet(fd, HOOPOE_PING, ping_data))
                 closed = true;
         }

@@ -21,10 +21,11 @@ static bool decode_greet(struct hoopoe_packet_data *data)
 
 static bool decode_ping(struct hoopoe_packet_data *data)
 {
-    if (data->data_size < sizeof(uint64_t))
+    if (data->data_size < 2 * sizeof(uint64_t))
         return false;
 
     data->data_ping.time = *((uint64_t *)data->data);
+    data->data_ping.old_ms = *((uint64_t *)data->data + 1);
     return true;
 }
 
@@ -46,7 +47,7 @@ bool hoopoe_recv_packet(int sockfd, hoopoe_packet_type *type,
         vec.iov_base = calloc(MAX_PACKET_SIZE, sizeof(uint8_t));
     vec.iov_len = MAX_PACKET_SIZE * sizeof(uint8_t);
 
-    int ret = readv(sockfd, &vec, 1);
+    ssize_t ret = readv(sockfd, &vec, 1);
 
     if (ret == 0)
         return false;
@@ -57,7 +58,7 @@ bool hoopoe_recv_packet(int sockfd, hoopoe_packet_type *type,
     }
 
     *type = *((uint8_t *)vec.iov_base);
-    data->data_size = vec.iov_len - sizeof(uint8_t);
+    data->data_size = ret - sizeof(uint8_t);
     data->data = malloc(data->data_size);
     memcpy(data->data, vec.iov_base + sizeof(uint8_t), data->data_size);
 
@@ -86,11 +87,12 @@ static void encode_greet(struct iovec *vec, struct hoopoe_data_greet data)
 
 static void encode_ping(struct iovec *vec, struct hoopoe_data_ping data)
 {
-    size_t len = sizeof(uint64_t);
+    size_t len = 2 * sizeof(uint64_t);
     if (vec->iov_len + len > MAX_PACKET_SIZE)
         return;
 
     *((uint64_t *)(vec->iov_base + vec->iov_len)) = data.time;
+    *((uint64_t *)(vec->iov_base + vec->iov_len) + 1) = data.old_ms;
     vec->iov_len += len;
 }
 

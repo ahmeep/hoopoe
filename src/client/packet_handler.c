@@ -1,19 +1,20 @@
 #include "packet_handler.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include "ui.h"
 
 static bool handle_greet(/*int sockfd, */ struct hoopoe_data_greet data)
 {
-    static char str[64];
-    snprintf(str, 64, "server name: %s", data.name);
-    hoopoe_ui_new_message(str);
+    hoopoe_ui_set_server_name(data.name);
     return true;
 }
 
 static bool handle_ping(int sockfd, struct hoopoe_data_ping data)
 {
+    hoopoe_ui_set_ping(data.old_ms);
+
     // just send the same packet because what we need to send is just same.
     struct hoopoe_packet_data packet_data;
     packet_data.data_ping = data;

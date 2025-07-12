@@ -10,6 +10,9 @@
 static pthread_t ui_thread;
 static struct hoopoe_ui_context context;
 
+static char server_name[65];
+static uint64_t ping;
+
 void *ui_routine(void *)
 {
     initscr();
@@ -83,4 +86,32 @@ void hoopoe_ui_finish()
     context.running = false;
     pthread_join(ui_thread, NULL);
     pthread_mutex_destroy(&context.ui_mutex);
+}
+
+void refresh_status_line()
+{
+    if (!context.running)
+        return;
+
+    int y, x;
+    getyx(stdscr, y, x);
+    {
+        move(LINES - 1, 0);
+        clrtoeol();
+        printw("server name: %s | ping: %lu ms", server_name, ping);
+    }
+    move(y, x);
+    refresh();
+}
+
+void hoopoe_ui_set_server_name(const char *in_server_name)
+{
+    strncpy(server_name, in_server_name, 64);
+    refresh_status_line();
+}
+
+void hoopoe_ui_set_ping(uint64_t in_ping)
+{
+    ping = in_ping;
+    refresh_status_line();
 }

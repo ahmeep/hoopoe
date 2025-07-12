@@ -11,6 +11,7 @@ struct hoopoe_data_greet {
 
 struct hoopoe_data_ping {
     uint64_t time;
+    uint64_t old_ms;
 };
 
 struct hoopoe_data_message {

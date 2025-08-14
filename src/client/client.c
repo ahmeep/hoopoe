@@ -39,11 +39,13 @@ void hoopoe_client_start()
                     addrinfo->ai_protocol);
     if (sockfd <= 0) {
         perror("Cannot create socket");
+        freeaddrinfo(addrinfo);
         return;
     }
 
     if (connect(sockfd, addrinfo->ai_addr, addrinfo->ai_addrlen) != 0) {
         perror("Cannot connect socket");
+        freeaddrinfo(addrinfo);
         return;
     }
 
